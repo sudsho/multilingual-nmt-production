@@ -72,6 +72,7 @@ def main():
     args = parse_args()
     cfg = load_config(args.config)
 
+    import mlflow
     import torch
     from accelerate import Accelerator
     from torch.utils.data import DataLoader
@@ -99,6 +100,16 @@ def main():
 
     n_epochs = cfg["train"]["num_train_epochs"]
     log_every = cfg["train"]["logging_steps"]
+
+    if accelerator.is_main_process:
+        mlflow.set_tracking_uri(cfg["mlflow"]["tracking_uri"])
+        mlflow.set_experiment(cfg["mlflow"]["experiment_name"])
+        mlflow.start_run(run_name=cfg["mlflow"].get("run_name"))
+        flat = {f"train.{k}": v for k, v in cfg["train"].items()}
+        flat.update({f"data.{k}": v for k, v in cfg["data"].items()})
+        flat.update({f"model.{k}": v for k, v in cfg["model"].items()})
+        mlflow.log_params({k: str(v) for k, v in flat.items()})
+
     step = 0
     for epoch in range(n_epochs):
         model.train()
@@ -110,12 +121,14 @@ def main():
             optimizer.zero_grad()
             if step % log_every == 0 and accelerator.is_main_process:
                 print(f"epoch {epoch} step {step} loss {loss.item():.4f}")
+                mlflow.log_metric("loss", loss.item(), step=step)
             step += 1
 
     if accelerator.is_main_process:
         unwrapped = accelerator.unwrap_model(model)
         unwrapped.save_pretrained(out)
         tok.save_pretrained(out)
+        mlflow.end_run()
 
 
 if __name__ == "__main__":
