@@ -50,7 +50,15 @@ def _resolve_src(text: str, override: Optional[str]) -> str:
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "model_loaded": _MODEL is not None}
+
+
+@app.get("/ready")
+def ready():
+    if _MODEL is None:
+        # warm load on first /ready hit
+        _ensure_model()
+    return {"ready": True}
 
 
 @app.post("/translate", response_model=TranslateResponse)
