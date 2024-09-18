@@ -15,6 +15,13 @@ from src.preprocess import to_mbart_code
 app = FastAPI(title="multilingual-nmt-production")
 
 
+_METRICS = {
+    "translate_calls": 0,
+    "translate_inputs": 0,
+    "translate_errors": 0,
+}
+
+
 class TranslateRequest(BaseModel):
     texts: List[str] = Field(..., min_length=1)
     src_lang: Optional[str] = None
@@ -61,16 +68,24 @@ def ready():
     return {"ready": True}
 
 
+@app.get("/metrics")
+def metrics():
+    return _METRICS
+
+
 @app.post("/translate", response_model=TranslateResponse)
 def translate_endpoint(req: TranslateRequest):
     if not req.texts:
+        _METRICS["translate_errors"] += 1
         raise HTTPException(status_code=400, detail="empty input")
     from src.translate import translate
     model, tok = _ensure_model()
     src_codes = [_resolve_src(t, req.src_lang) for t in req.texts]
     tgt_code = to_mbart_code(req.tgt_lang)
 
-    # If all input texts share a src lang, batch them. Else fall back to per-text loop.
+    _METRICS["translate_calls"] += 1
+    _METRICS["translate_inputs"] += len(req.texts)
+
     out: List[str] = []
     if len(set(src_codes)) == 1:
         out = translate(model, tok, req.texts, src_codes[0], tgt_code,
