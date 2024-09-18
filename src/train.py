@@ -53,19 +53,8 @@ def build_dataset(cfg: dict, tokenizer):
 
 
 def collate(batch, pad_id: int):
-    import torch
-
-    def pad(seqs, value):
-        max_len = max(len(s) for s in seqs)
-        out = []
-        for s in seqs:
-            out.append(s + [value] * (max_len - len(s)))
-        return torch.tensor(out, dtype=torch.long)
-
-    input_ids = pad([b["input_ids"] for b in batch], pad_id)
-    attn = pad([b["attention_mask"] for b in batch], 0)
-    labels = pad([b["labels"] for b in batch], -100)
-    return {"input_ids": input_ids, "attention_mask": attn, "labels": labels}
+    from src.collator import PadCollator
+    return PadCollator(pad_id)(batch)
 
 
 def main():
