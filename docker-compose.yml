@@ -1,0 +1,18 @@
+version: "3.9"
+services:
+  api:
+    build: .
+    image: mnmt-api:dev
+    ports:
+      - "8080:8080"
+    environment:
+      MNMT_CHECKPOINT: ${MNMT_CHECKPOINT:-facebook/mbart-large-50-many-to-many-mmt}
+    volumes:
+      - ./outputs:/app/outputs:ro
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.15.0
+    command: mlflow server --host 0.0.0.0 --backend-store-uri /mlruns
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlruns
