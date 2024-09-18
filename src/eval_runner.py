@@ -44,10 +44,9 @@ def main():
             srcs.append(row["src_text"])
             refs.append(row["tgt_text"])
 
+    from src.utils import chunks
     hyps: List[str] = []
-    bs = args.batch_size
-    for i in range(0, len(srcs), bs):
-        chunk = srcs[i:i + bs]
+    for chunk in chunks(srcs, args.batch_size):
         hyps.extend(translate(model, tok, chunk, src_code, tgt_code,
                               num_beams=args.num_beams, length_penalty=args.length_penalty))
 

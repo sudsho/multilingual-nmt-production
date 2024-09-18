@@ -68,6 +68,9 @@ def main():
 
     from src.model import load_model_and_tokenizer
 
+    from src.utils import set_seed
+    set_seed(int(cfg["train"].get("seed", 7)))
+
     accelerator = Accelerator()
     model, tok = load_model_and_tokenizer(cfg["model"]["name"])
 
