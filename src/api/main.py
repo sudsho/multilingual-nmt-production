@@ -9,8 +9,14 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from src.api.lid import detect_lang
+from src.logging_setup import setup as _setup_logs
 from src.preprocess import to_mbart_code
 
+
+_setup_logs()
+import logging  # noqa: E402
+
+log = logging.getLogger("mnmt.api")
 
 app = FastAPI(title="multilingual-nmt-production")
 
@@ -85,6 +91,7 @@ def translate_endpoint(req: TranslateRequest):
 
     _METRICS["translate_calls"] += 1
     _METRICS["translate_inputs"] += len(req.texts)
+    log.info("translate", extra={"n": len(req.texts), "tgt": tgt_code})
 
     out: List[str] = []
     if len(set(src_codes)) == 1:
