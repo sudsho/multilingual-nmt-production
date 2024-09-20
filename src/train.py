@@ -109,6 +109,7 @@ def main():
             outputs = model(**batch)
             loss = outputs.loss
             accelerator.backward(loss)
+            accelerator.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             optimizer.zero_grad()
             if step % log_every == 0 and accelerator.is_main_process:
