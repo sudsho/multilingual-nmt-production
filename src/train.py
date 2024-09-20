@@ -85,12 +85,18 @@ def main():
     )
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(cfg["train"]["learning_rate"]),
                                   weight_decay=cfg["train"]["weight_decay"])
-    model, optimizer, loader = accelerator.prepare(model, optimizer, loader)
+
+    from transformers import get_linear_schedule_with_warmup
+    n_epochs = cfg["train"]["num_train_epochs"]
+    total_steps = max(1, len(loader)) * n_epochs
+    warmup = int(cfg["train"].get("warmup_ratio", 0.06) * total_steps)
+    scheduler = get_linear_schedule_with_warmup(optimizer, warmup, total_steps)
+
+    model, optimizer, loader, scheduler = accelerator.prepare(model, optimizer, loader, scheduler)
 
     out = Path(cfg["train"]["output_dir"])
     out.mkdir(parents=True, exist_ok=True)
 
-    n_epochs = cfg["train"]["num_train_epochs"]
     log_every = cfg["train"]["logging_steps"]
 
     if accelerator.is_main_process:
@@ -111,6 +117,7 @@ def main():
             accelerator.backward(loss)
             accelerator.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
+            scheduler.step()
             optimizer.zero_grad()
             if step % log_every == 0 and accelerator.is_main_process:
                 print(f"epoch {epoch} step {step} loss {loss.item():.4f}")
