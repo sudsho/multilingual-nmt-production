@@ -28,10 +28,17 @@ LANGS = {
 
 
 def to_mbart_code(short: str) -> str:
-    if short in LANGS:
-        return LANGS[short]
-    if short in LANGS.values():
-        return short
+    if not short:
+        raise ValueError("empty language code")
+    s = short.strip()
+    if s in LANGS:
+        return LANGS[s]
+    if s in LANGS.values():
+        return s
+    # be friendly to "EN" or "Hi"
+    lower = s.lower()
+    if lower in LANGS:
+        return LANGS[lower]
     raise ValueError(f"unknown language: {short}")
 
 

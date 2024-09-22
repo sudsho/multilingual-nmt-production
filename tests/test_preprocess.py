@@ -17,3 +17,13 @@ def test_passthrough_long_form():
 def test_unknown_language_raises():
     with pytest.raises(ValueError):
         to_mbart_code("xx")
+
+
+def test_empty_raises():
+    with pytest.raises(ValueError):
+        to_mbart_code("")
+
+
+def test_case_insensitive():
+    assert to_mbart_code("EN") == "en_XX"
+    assert to_mbart_code("Hi") == "hi_IN"
