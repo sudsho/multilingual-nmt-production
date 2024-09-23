@@ -94,11 +94,24 @@ def translate_endpoint(req: TranslateRequest):
     log.info("translate", extra={"n": len(req.texts), "tgt": tgt_code})
 
     out: List[str] = []
-    if len(set(src_codes)) == 1:
-        out = translate(model, tok, req.texts, src_codes[0], tgt_code,
-                        num_beams=req.num_beams, length_penalty=req.length_penalty)
-    else:
-        for text, src_code in zip(req.texts, src_codes):
-            out.extend(translate(model, tok, [text], src_code, tgt_code,
-                                 num_beams=req.num_beams, length_penalty=req.length_penalty))
+    try:
+        if len(set(src_codes)) == 1:
+            out = translate(model, tok, req.texts, src_codes[0], tgt_code,
+                            num_beams=req.num_beams, length_penalty=req.length_penalty)
+        else:
+            # group inputs by detected source so each group is one batched generate
+            groups: dict[str, list[int]] = {}
+            for i, code in enumerate(src_codes):
+                groups.setdefault(code, []).append(i)
+            out = [None] * len(req.texts)  # type: ignore[list-item]
+            for code, idxs in groups.items():
+                chunk = [req.texts[i] for i in idxs]
+                outs = translate(model, tok, chunk, code, tgt_code,
+                                 num_beams=req.num_beams, length_penalty=req.length_penalty)
+                for j, i in enumerate(idxs):
+                    out[i] = outs[j]
+    except Exception as exc:
+        _METRICS["translate_errors"] += 1
+        log.exception("translate_failed")
+        raise HTTPException(status_code=500, detail=str(exc))
     return TranslateResponse(translations=out, src_lang=src_codes)
