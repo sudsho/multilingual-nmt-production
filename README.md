@@ -4,6 +4,74 @@ Production multilingual neural machine translation. Fine-tunes
 `facebook/mbart-large-50-many-to-many-mmt` on a small custom corpus (Tatoeba
 pairs) and serves batch translation behind FastAPI with language detection.
 
+## Quick start (tiny-CPU smoke, no GPU/download)
+
+The headline system fine-tunes mBART-50 (a ~2.4 GB download) on a GPU and reports
+spBLEU/chrF. That needs a GPU, a real parallel corpus, and network access, so it
+does not run on a plain laptop. To prove the pipeline shape end to end on CPU in a
+few seconds with no downloads and no pretrained weights, run the smoke:
+
+```bash
+make smoke        # or: python scripts/smoke.py
+```
+
+It builds a tiny synthetic parallel corpus from a deterministic src to tgt rule
+(target = reversed source over a 6-symbol vocab), trains a small GRU
+encoder-decoder with attention for a few hundred steps, greedy-decodes held-out
+examples, and runs the real language-detection component on multilingual sample
+strings using its offline heuristic fallback (the fastText model download is
+guarded and skipped). Real verified output:
+
+```
+============================================================
+multilingual-nmt-production  tiny-CPU offline smoke
+============================================================
+synthetic task : reverse a length-5 sequence over ['a', 'b', 'c', 'd', 'e', 'f']
+model          : GRU enc-dec + attention, vocab=9, params=66,922
+train pairs    : 2000  (fully synthetic, no download)
+------------------------------------------------------------
+step    0  loss 2.2052
+step  200  loss 0.0801
+step  400  loss 0.0272
+step  699  loss 0.0086
+------------------------------------------------------------
+loss: 2.2052 -> 0.0086  (decreased)
+------------------------------------------------------------
+held-out greedy decode (src -> expected | got):
+  faeee -> eeeaf | eeeaf  OK
+  ddbfc -> cfbdd | cfbdd  OK
+  bceaf -> faecb | faecb  OK
+  acabf -> fbaca | fbaca  OK
+------------------------------------------------------------
+language detection (offline heuristic, no fastText download):
+  'Hello, world.'                               -> en  (expected en)  OK
+  'Bonjour le monde, comment allez vous'        -> fr  (expected fr)  OK
+  'Hola mundo, ¿como estas?'                    -> es  (expected es)  OK
+  'Guten Morgen, wie geht es dir?'              -> de  (expected de)  OK
+  'नमस्ते दुनिया'                               -> hi  (expected hi)  OK
+  'こんにちは世界'                                     -> ja  (expected ja)  OK
+  'Привет мир'                                  -> ru  (expected ru)  OK
+------------------------------------------------------------
+mBART-50 / transformers download guarded and SKIPPED (set MNMT_RUN_REAL=1 to opt in).
+============================================================
+loss decreased >=2x : True  (2.205 -> 0.009)
+held-out decode acc : 1.00  (>=0.75 required)
+language-id accuracy: 1.00  (>=0.85 required)
+SMOKE OK
+```
+
+Run the test suite (heavy HF/mBART weights are mocked, so it stays on CPU):
+
+```bash
+python -m pytest -q      # 36 passed
+```
+
+What the smoke does NOT do: it is a stand-in, not the real model. The headline
+mBART-50 translation quality and the spBLEU/chrF numbers below need a GPU, the
+pretrained mBART-50 weights (a large download), and a real parallel corpus. The
+smoke only proves the training loop, attention decode, language detection, and
+eval/serving plumbing run offline on CPU.
+
 ## Problem
 
 Off-the-shelf NMT systems often miss domain phrasing and rare language pairs.

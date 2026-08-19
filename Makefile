@@ -1,7 +1,10 @@
-.PHONY: install fmt lint test serve train eval docker
+.PHONY: install fmt lint test smoke serve train eval docker
 
 install:
 	pip install -r requirements.txt
+
+smoke:
+	python scripts/smoke.py
 
 fmt:
 	python -m ruff format src tests
